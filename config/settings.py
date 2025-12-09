@@ -36,8 +36,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    #'inventory',
+    # --- APP CỦA BẠN (Thêm vào đây) ---
+    'simple_history',    
     'warehouse_input',
+    'warehouse_stock',
+    'production.apps.ProductionConfig', # Khai báo đầy đủ để chạy được Signals
+   
 ]
 
 MIDDLEWARE = [

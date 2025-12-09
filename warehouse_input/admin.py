@@ -6,8 +6,8 @@ class InputVoucherDetailInline(admin.TabularInline):
     extra = 1
 
 class InputVoucherAdmin(admin.ModelAdmin):
-    list_display = ('code', 'date', 'supplier', 'created_at')
     inlines = [InputVoucherDetailInline]
+    list_display = ('code', 'date', 'supplier')
 
 admin.site.register(MaterialType)
 admin.site.register(Supplier)
