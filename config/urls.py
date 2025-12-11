@@ -1,25 +1,16 @@
 # config/urls.py
-
 from django.contrib import admin
-from django.urls import path, include # <--- Nhớ import include
-from django.conf import settings
-from django.conf.urls.static import static
-
-# 1. Import các công cụ cần thiết từ rest_framework và app của bạn
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from production.views import FinishedBundleViewSet
+from production.views import FinishedBundleViewSet, CustomerViewSet, ProductionBatchViewSet
 
-# 2. Tạo Router và đăng ký API 'finished-bundles'
+# Tạo Router
 router = DefaultRouter()
 router.register(r'finished-bundles', FinishedBundleViewSet)
+router.register(r'customers', CustomerViewSet)
+router.register(r'batches', ProductionBatchViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    
-    # 3. Đưa tất cả API vào đường dẫn bắt đầu bằng 'api/'
-    path('api/', include(router.urls)), 
+    path('api/', include(router.urls)), # Đăng ký đường dẫn API
 ]
-
-# Cấu hình media cho môi trường debug (giữ nguyên như cũ của bạn)
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,9 +1,20 @@
 from rest_framework import serializers
-from .models import FinishedBundle
+from .models import FinishedBundle, Customer, ProductionBatch
 
+# 1. Serializer cho Kiện hàng
 class FinishedBundleSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinishedBundle
-        # Dưới đây là khai báo lấy tất cả các trường dữ liệu
-        fields = '__all__' 
-        # Hoặc nếu muốn chỉ định cụ thể: fields = ['id', 'barcode', 'weight', 'status']
+        fields = '__all__'
+
+# 2. Serializer cho Khách hàng (Sửa lại chỗ này)
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:  # <--- Dòng này phải thụt vào (bấm Tab 1 lần)
+        model = Customer
+        fields = '__all__'
+
+# 3. Serializer cho Mẻ nấu (Sửa lại chỗ này)
+class ProductionBatchSerializer(serializers.ModelSerializer):
+    class Meta:  # <--- Dòng này cũng phải thụt vào
+        model = ProductionBatch
+        fields = '__all__'

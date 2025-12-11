@@ -50,6 +50,7 @@ class WeighingSlip(models.Model):
     batch = models.ForeignKey(ProductionBatch, on_delete=models.PROTECT, verbose_name="Thuộc LotNo")
     date = models.DateTimeField(default=timezone.now)
     def __str__(self): return self.code
+    
 
 class FinishedBundle(models.Model):
     weighing_slip = models.ForeignKey(WeighingSlip, related_name='bundles', on_delete=models.CASCADE)
