@@ -49,6 +49,8 @@ class WeighingSlip(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu")
     batch = models.ForeignKey(ProductionBatch, on_delete=models.PROTECT, verbose_name="Thuộc LotNo")
     date = models.DateTimeField(default=timezone.now)
+    pallet_weight = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="TL Chân đế")
+    ng_weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="TL Hàng NG")
     def __str__(self): return self.code
     
 
