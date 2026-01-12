@@ -1,35 +1,57 @@
 # production/views.py
 from rest_framework import viewsets
-from .models import FinishedBundle, Customer, ProductionBatch, WeighingSlip
-from .serializers import (
-    FinishedBundleSerializer, 
-    CustomerSerializer, 
-    ProductionBatchSerializer, 
-    WeighingSlipSerializer
-)
 from django.shortcuts import render
 
+# Import Models
+from .models import (
+    ProductionOrder, ProductionBatch, MaterialIssueDetail,
+    WeighingSlip, FinishedBundle, Customer, ProductStandard
+)
+
+# Import Serializers
+from .serializers import (
+    ProductionOrderSerializer, ProductionBatchSerializer, MaterialIssueDetailSerializer,
+    WeighingSlipSerializer, FinishedBundleSerializer, CustomerSerializer, ProductStandardSerializer
+)
+
+# 1. View cho Lệnh Sản Xuất
+class ProductionOrderViewSet(viewsets.ModelViewSet):
+    # Sắp xếp theo ngày tạo mới nhất
+    queryset = ProductionOrder.objects.all().order_by('-date_created')
+    serializer_class = ProductionOrderSerializer
+
+# 2. View cho Mẻ Nấu (Lò)
 class ProductionBatchViewSet(viewsets.ModelViewSet):
-    # SỬA LỖI Ở ĐÂY:
-    # 1. Đổi '-date' thành '-date_started' (hoặc '-id')
-    # 2. Đổi 'bundles' thành 'finishedbundle_set' nếu bạn chưa đặt related_name
-    queryset = ProductionBatch.objects.all().prefetch_related('finishedbundle_set').order_by('-date_started')
+    # LƯU Ý QUAN TRỌNG: Sửa date_started -> start_time
+    queryset = ProductionBatch.objects.all().order_by('-start_time')
     serializer_class = ProductionBatchSerializer
+
+# 3. View cho Kho Soạn Hàng
+class MaterialIssueDetailViewSet(viewsets.ModelViewSet):
+    queryset = MaterialIssueDetail.objects.all().order_by('-created_at')
+    serializer_class = MaterialIssueDetailSerializer
+
+# 4. View cho Thành Phẩm
+class WeighingSlipViewSet(viewsets.ModelViewSet):
+    queryset = WeighingSlip.objects.all().order_by('-date')
+    serializer_class = WeighingSlipSerializer
 
 class FinishedBundleViewSet(viewsets.ModelViewSet):
     queryset = FinishedBundle.objects.all().order_by('-id')
     serializer_class = FinishedBundleSerializer
 
+# 5. Danh mục
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
-class WeighingSlipViewSet(viewsets.ModelViewSet):
-    queryset = WeighingSlip.objects.all().order_by('-id')
-    serializer_class = WeighingSlipSerializer
+class ProductStandardViewSet(viewsets.ModelViewSet):
+    queryset = ProductStandard.objects.all()
+    serializer_class = ProductStandardSerializer
+
+# --- CÁC HÀM RENDER HTML CŨ (GIỮ NGUYÊN HOẶC CẬP NHẬT SAU) ---
 def index(request):
-    """Hàm này sẽ trả về file html giao diện chính"""
     return render(request, 'production/index.html')
+
 def weighing(request):
-    """Trả về giao diện phiếu cân"""
     return render(request, 'production/weighing.html')
