@@ -94,6 +94,7 @@ INSTALLED_APPS = [
     'warehouse_input',
     'warehouse_stock',
     'production.apps.ProductionConfig', # Khai báo đầy đủ để chạy được Signals
+
     
 ]
 
@@ -112,7 +113,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -184,23 +185,63 @@ MEDIA_ROOT = BASE_DIR / 'media'
 ==================================================
 FILE: .\config\urls.py
 ==================================================
-# config/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from production.views import FinishedBundleViewSet, CustomerViewSet, ProductionBatchViewSet, WeighingSlipViewSet, index, weighing
-# Tạo Router
+
+# 1. IMPORT TỪ APP KHO (WAREHOUSE)
+from warehouse_input.views import (
+    MaterialTypeViewSet, 
+    SupplierViewSet, 
+    InputVoucherViewSet, 
+    import_page
+)
+from warehouse_stock.views import (
+    InventoryItemViewSet, 
+    StockAdjustmentViewSet, 
+    inventory_page
+)
+
+# 2. IMPORT TỪ APP SẢN XUẤT (PRODUCTION) - CẦN CẬP NHẬT ĐỦ Ở ĐÂY
+from production.views import (
+    ProductionOrderViewSet,      # <--- Cái bạn đang thiếu
+    ProductionBatchViewSet,
+    MaterialIssueDetailViewSet,  # <--- Cái mới thêm
+    WeighingSlipViewSet,
+    FinishedBundleViewSet,
+    CustomerViewSet,
+    ProductStandardViewSet,
+    index, 
+    weighing
+)
+
 router = DefaultRouter()
+
+# --- ROUTER KHO ---
+router.register(r'materials', MaterialTypeViewSet)
+router.register(r'suppliers', SupplierViewSet)
+router.register(r'input-vouchers', InputVoucherViewSet)
+router.register(r'inventory', InventoryItemViewSet)
+router.register(r'adjustments', StockAdjustmentViewSet)
+
+# --- ROUTER SẢN XUẤT (MỚI) ---
+router.register(r'production-orders', ProductionOrderViewSet)
+router.register(r'batches', ProductionBatchViewSet)
+router.register(r'material-issues', MaterialIssueDetailViewSet)
+router.register(r'weighing-slips', WeighingSlipViewSet)
 router.register(r'finished-bundles', FinishedBundleViewSet)
 router.register(r'customers', CustomerViewSet)
-router.register(r'batches', ProductionBatchViewSet)
-router.register(r'weighing-slips', WeighingSlipViewSet)
+router.register(r'standards', ProductStandardViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)), # Đăng ký đường dẫn API
+    path('api/', include(router.urls)),
+    
+    # Các trang HTML
     path('', index, name='home'),
     path('can-hang/', weighing, name='weighing'),
+    path('ton-kho/', inventory_page, name='inventory'),
+    path('nhap-kho/', import_page, name='import'),
 ]
 
 ==================================================
@@ -233,15 +274,79 @@ FILE: .\config\__init__.py
 FILE: .\production\admin.py
 ==================================================
 from django.contrib import admin
-from .models import Customer, ProductStandard, ProductionBatch, FurnaceLog, WeighingSlip, FinishedBundle, ScrapReturn
+from .models import (
+    Customer, AlloyType, ProductStandard, 
+    MonthlyPlan, ProductionOrder, ProductionOrderItem, MaterialIssueDetail, 
+    ProductionBatch, FurnaceLog, 
+    WeighingSlip, FinishedBundle, ScrapReturn,
+    DeliveryNote, RepackingSession
+)
+
+# ========================================================
+# 1. KẾ HOẠCH & ĐƠN HÀNG (TRUNG TÂM)
+# ========================================================
+
+class AlloyTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description')
+    search_fields = ('name',)
+
+class ProductStandardAdmin(admin.ModelAdmin):
+    list_display = ('code', 'alloy_type', 'customer', 'si_min', 'si_max', 'fe_max')
+    list_filter = ('alloy_type', 'customer')
+
+class ProductionOrderItemInline(admin.TabularInline):
+    model = ProductionOrderItem
+    extra = 1
+
+class MaterialIssueDetailInline(admin.TabularInline):
+    model = MaterialIssueDetail
+    fields = ('source_input', 'real_weight', 'status')
+    readonly_fields = ('created_at',)
+    extra = 0
+    can_delete = False
+
+class ProductionOrderAdmin(admin.ModelAdmin):
+    list_display = ('lot_no', 'product_type', 'target_quantity', 'customer', 'status', 'date_created')
+    # Sửa lỗi: Dùng product_type thay vì product_name
+    list_filter = ('status', 'customer', 'product_type') 
+    search_fields = ('lot_no', 'customer__name')
+    inlines = [ProductionOrderItemInline, MaterialIssueDetailInline]
+
+# ========================================================
+# 2. KHO (SOẠN HÀNG)
+# ========================================================
+
+class MaterialIssueDetailAdmin(admin.ModelAdmin):
+    list_display = ('production_order', 'source_input', 'real_weight', 'status', 'created_at')
+    
+    # --- ĐÂY LÀ CHỖ GÂY LỖI TRƯỚC ĐÓ ---
+    # Đã sửa: production_order__product_name -> production_order__product_type
+    list_filter = ('status', 'production_order__product_type') 
+    
+    search_fields = ('production_order__lot_no',) 
+
+# ========================================================
+# 3. LÒ & SẢN XUẤT
+# ========================================================
 
 class FurnaceLogInline(admin.TabularInline):
     model = FurnaceLog
     extra = 1
+    fields = ('timestamp', 'action_type', 'issue_detail', 'adhoc_material', 'adhoc_weight', 'temperature', 'test_result_note')
 
 class ProductionBatchAdmin(admin.ModelAdmin):
+    list_display = ('get_lot_no', 'furnace_name', 'status', 'start_time') 
+    list_filter = ('status', 'furnace_name')
+    search_fields = ('production_order__lot_no',) 
     inlines = [FurnaceLogInline]
-    list_display = ('lot_no', 'furnace_name', 'status')
+
+    def get_lot_no(self, obj):
+        return obj.production_order.lot_no if obj.production_order else "-"
+    get_lot_no.short_description = 'Lot No'
+
+# ========================================================
+# 4. THÀNH PHẨM (ĐẦU RA)
+# ========================================================
 
 class FinishedBundleInline(admin.TabularInline):
     model = FinishedBundle
@@ -252,30 +357,36 @@ class ScrapReturnInline(admin.TabularInline):
     extra = 1
 
 class WeighingSlipAdmin(admin.ModelAdmin):
+    list_display = ('code', 'production_order', 'date', 'total_weight_display')
+    search_fields = ('code', 'production_order__lot_no')
     inlines = [FinishedBundleInline, ScrapReturnInline]
-    list_display = ('code', 'batch', 'date')
 
-class FinishedBundleAdmin(admin.ModelAdmin):
-    list_display = ('barcode', 'weight', 'is_odd', 'status')
-    list_filter = ('status', 'is_odd')
-# ... (Import thêm DeliveryNote, RepackingSession) ...
-from .models import DeliveryNote, RepackingSession
+    def total_weight_display(self, obj):
+        total = sum([b.weight for b in obj.bundles.all()])
+        return f"{total} kg"
+    total_weight_display.short_description = "Tổng KL"
 
-class DeliveryNoteAdmin(admin.ModelAdmin):
-    list_display = ('code', 'customer', 'date')
-    filter_horizontal = ('bundles',) # Giúp chọn kiện hàng dễ hơn (giao diện 2 khung trái phải)
+# ========================================================
+# 5. CÁC DANH MỤC KHÁC
+# ========================================================
 
-class RepackingSessionAdmin(admin.ModelAdmin):
-    list_display = ('code', 'date')
-    filter_horizontal = ('input_bundles',)
+class MonthlyPlanAdmin(admin.ModelAdmin):
+    list_display = ('month', 'material_type', 'planned_quantity')
+    list_filter = ('month',)
 
-admin.site.register(DeliveryNote, DeliveryNoteAdmin)
-admin.site.register(RepackingSession, RepackingSessionAdmin)
+# ĐĂNG KÝ
 admin.site.register(Customer)
-admin.site.register(ProductStandard)
+admin.site.register(AlloyType, AlloyTypeAdmin)
+admin.site.register(ProductStandard, ProductStandardAdmin)
+admin.site.register(MonthlyPlan, MonthlyPlanAdmin)
+admin.site.register(ProductionOrder, ProductionOrderAdmin)
+admin.site.register(MaterialIssueDetail, MaterialIssueDetailAdmin)
 admin.site.register(ProductionBatch, ProductionBatchAdmin)
 admin.site.register(WeighingSlip, WeighingSlipAdmin)
-admin.site.register(FinishedBundle, FinishedBundleAdmin)
+admin.site.register(FinishedBundle)
+admin.site.register(ScrapReturn)
+admin.site.register(DeliveryNote)
+admin.site.register(RepackingSession)
 
 ==================================================
 FILE: .\production\apps.py
@@ -295,208 +406,295 @@ FILE: .\production\models.py
 from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
+from warehouse_input.models import InputVoucherDetail, MaterialType
 
-# 1. KHÁCH HÀNG & TIÊU CHUẨN
+# ==============================================================================
+# 1. DANH MỤC CƠ BẢN (KHÁCH HÀNG, MÁC NHÔM, TIÊU CHUẨN)
+# ==============================================================================
+
 class Customer(models.Model):
     code = models.CharField(max_length=20, unique=True, verbose_name="Mã KH")
     name = models.CharField(max_length=200, verbose_name="Tên Khách Hàng")
     def __str__(self): return self.name
 
+class AlloyType(models.Model):
+    """
+    DANH MỤC MÁC NHÔM (MASTER DATA)
+    VD: ADC12, A356, 6063...
+    """
+    name = models.CharField(max_length=50, unique=True, verbose_name="Tên Mác Nhôm")
+    description = models.TextField(blank=True, verbose_name="Mô tả đặc tính")
+
+    def __str__(self): return self.name
+
 class ProductStandard(models.Model):
+    """
+    Tiêu chuẩn sản phẩm theo từng Khách hàng & Mác nhôm
+    """
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã Tiêu chuẩn")
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, verbose_name="Khách hàng")
-    alloy_type = models.CharField(max_length=50, verbose_name="Mác nhôm")
+    
+    # --- THAY ĐỔI: Chọn từ danh sách Mác nhôm ---
+    alloy_type = models.ForeignKey(AlloyType, on_delete=models.PROTECT, verbose_name="Mác nhôm áp dụng")
+    
+    # Thành phần hóa học yêu cầu
     si_min = models.FloatField(default=0, verbose_name="Si Min")
     si_max = models.FloatField(default=0, verbose_name="Si Max")
-    def __str__(self): return f"{self.code} ({self.customer.code})"
+    fe_min = models.FloatField(default=0, verbose_name="Fe Min")
+    fe_max = models.FloatField(default=0, verbose_name="Fe Max")
+    cu_min = models.FloatField(default=0, verbose_name="Cu Min")
+    cu_max = models.FloatField(default=0, verbose_name="Cu Max")
+    # ... Bạn có thể thêm Mg, Mn, Zn, Ni ...
+    
+    notes = models.TextField(blank=True, verbose_name="Quy cách tem/đóng gói")
 
-# 2. LÒ NẤU (MẺ)
+    class Meta:
+        unique_together = ('customer', 'alloy_type') # Mỗi KH chỉ có 1 tiêu chuẩn cho 1 loại mác nhôm
+
+    def __str__(self): return f"{self.alloy_type.name} - {self.customer.code}"
+
+
+# ==============================================================================
+# 2. KẾ HOẠCH & LỆNH SẢN XUẤT (TRUNG TÂM LOTNO)
+# ==============================================================================
+
+class MonthlyPlan(models.Model):
+    month = models.CharField(max_length=7, verbose_name="Tháng (YYYY-MM)") 
+    material_type = models.ForeignKey(MaterialType, on_delete=models.CASCADE, verbose_name="Loại vật tư")
+    planned_quantity = models.FloatField(default=0, verbose_name="Kế hoạch (Kg)")
+    
+    class Meta:
+        unique_together = ('month', 'material_type')
+
+    def __str__(self): return f"Plan {self.month} - {self.material_type.name}"
+
+class ProductionOrder(models.Model):
+    """
+    Lệnh Sản Xuất
+    """
+    lot_no = models.CharField(max_length=50, unique=True, verbose_name="LOT NO (Mã Lô)") 
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, verbose_name="Khách hàng")
+    
+    # --- THAY ĐỔI: Chọn Mác nhôm từ danh sách ---
+    product_type = models.ForeignKey(AlloyType, on_delete=models.PROTECT, verbose_name="Sản phẩm (Mác nhôm)")
+    
+    # Tiêu chuẩn sẽ tự động link theo KH + Mác nhôm (hoặc chọn thủ công nếu muốn override)
+    standard = models.ForeignKey(ProductStandard, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tiêu chuẩn áp dụng")
+    
+    target_quantity = models.FloatField(default=0, verbose_name="Sản lượng yêu cầu (Kg)")
+    date_created = models.DateTimeField(default=timezone.now, verbose_name="Ngày lập lệnh")
+    
+    status = models.CharField(max_length=20, choices=[
+        ('NEW', 'Mới tạo'), 
+        ('PROCESSING', 'Đang sản xuất'), 
+        ('DONE', 'Đã đóng Lô')
+    ], default='NEW')
+    
+    note = models.TextField(blank=True, verbose_name="Ghi chú SX")
+
+    def __str__(self): return f"{self.lot_no} ({self.product_type.name})"
+
+class ProductionOrderItem(models.Model):
+    production_order = models.ForeignKey(ProductionOrder, related_name='items', on_delete=models.CASCADE)
+    material_type = models.ForeignKey(MaterialType, on_delete=models.PROTECT, verbose_name="Loại liệu cần")
+    quantity_required = models.FloatField(verbose_name="Khối lượng cần (Kg)")
+    
+    def __str__(self): return f"{self.production_order.lot_no} - {self.material_type.name}"
+
+
+# ==============================================================================
+# 3. KHO: PHIẾU CÂN / SOẠN HÀNG (LIÊN KẾT VỚI LOTNO)
+# ==============================================================================
+
+class MaterialIssueDetail(models.Model):
+    production_order = models.ForeignKey(ProductionOrder, on_delete=models.CASCADE, related_name='material_issues', verbose_name="Thuộc LotNo")
+    source_input = models.ForeignKey(InputVoucherDetail, on_delete=models.PROTECT, verbose_name="Lấy từ Lô Nhập")
+    real_weight = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="KL Thực (Kg)")
+    
+    status = models.CharField(max_length=20, choices=[
+        ('WAITING', 'Đã cân/Chờ lò'), 
+        ('CHARGED', 'Đã nạp lò'),
+        ('RETURN', 'Trả lại kho')
+    ], default='WAITING')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self): return f"Lot {self.production_order.lot_no} - {self.real_weight}kg"
+
+
+# ==============================================================================
+# 4. LÒ: NHẬT KÝ SẢN XUẤT (GẮN VỚI LOTNO)
+# ==============================================================================
+
 class ProductionBatch(models.Model):
-    lot_no = models.CharField(max_length=50, unique=True, verbose_name="Lot No")
+    production_order = models.ForeignKey(ProductionOrder, on_delete=models.PROTECT, related_name='batches', verbose_name="Sản xuất cho LotNo")
     furnace_name = models.CharField(max_length=50, verbose_name="Lò nấu")
-    target_standard = models.ForeignKey(ProductStandard, on_delete=models.SET_NULL, null=True, verbose_name="Tiêu chuẩn")
-    date_started = models.DateTimeField(default=timezone.now, verbose_name="Bắt đầu")
+    start_time = models.DateTimeField(default=timezone.now)
+    end_time = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=[('COOKING', 'Đang nấu'), ('DONE', 'Hoàn thành')], default='COOKING')
     
-    # Tổng kết
-    total_slag = models.IntegerField(default=0, verbose_name="Xỉ (Gầu)")
-    gas_usage = models.FloatField(default=0, verbose_name="Gas (kg)")
+    si_final = models.FloatField(default=0, verbose_name="Si Final")
+    fe_final = models.FloatField(default=0, verbose_name="Fe Final")
+    cu_final = models.FloatField(default=0, verbose_name="Cu Final")
+    
     history = HistoricalRecords()
-    def __str__(self): return f"Lot {self.lot_no}"
 
-# 3. NHẬT KÝ VẬN HÀNH (Furnace Log)
+    def __str__(self): return f"{self.production_order.lot_no} @ {self.furnace_name}"
+
 class FurnaceLog(models.Model):
     batch = models.ForeignKey(ProductionBatch, related_name='logs', on_delete=models.CASCADE)
     timestamp = models.DateTimeField(default=timezone.now)
-    action_type = models.CharField(max_length=10, choices=[('ADD', 'Nạp Liệu'), ('TEST', 'Test Mẫu')], verbose_name="Hành động")
+    action_type = models.CharField(max_length=20, choices=[('ADD', 'Nạp Liệu'), ('TEST', 'Test Mẫu')], default='ADD')
     
-    # Nếu nạp liệu (Dùng chuỗi tham chiếu sang app warehouse_input)
-    material_type = models.ForeignKey('warehouse_input.MaterialType', on_delete=models.SET_NULL, null=True, blank=True)
-    quantity = models.FloatField(default=0, verbose_name="Khối lượng (kg)")
-    
-    # Nếu test mẫu
-    si_result = models.FloatField(default=0, verbose_name="Si Result")
+    issue_detail = models.ForeignKey(MaterialIssueDetail, on_delete=models.SET_NULL, null=True, blank=True)
+    adhoc_material = models.ForeignKey(MaterialType, on_delete=models.SET_NULL, null=True, blank=True)
+    adhoc_weight = models.FloatField(default=0)
+    temperature = models.FloatField(default=0, verbose_name="Nhiệt độ")
+    test_result_note = models.TextField(blank=True, verbose_name="KQ Test")
+
+
+# ==============================================================================
+# 5. THÀNH PHẨM & XUẤT HÀNG
+# ==============================================================================
+
+class WeighingSlip(models.Model):
+    code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu cân TP")
+    production_order = models.ForeignKey(ProductionOrder, on_delete=models.PROTECT, verbose_name="Cân cho LotNo")
+    date = models.DateTimeField(default=timezone.now)
     note = models.TextField(blank=True)
 
-# 4. ĐẦU RA (Phiếu cân)
-class WeighingSlip(models.Model):
-    code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu")
-    batch = models.ForeignKey(ProductionBatch, on_delete=models.PROTECT, verbose_name="Thuộc LotNo")
-    date = models.DateTimeField(default=timezone.now)
-    pallet_weight = models.DecimalField(max_digits=5, decimal_places=2, default=0, verbose_name="TL Chân đế")
-    ng_weight = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="TL Hàng NG")
-    def __str__(self): return self.code
-    
+    def __str__(self): return f"{self.code} - {self.production_order.lot_no}"
 
 class FinishedBundle(models.Model):
     weighing_slip = models.ForeignKey(WeighingSlip, related_name='bundles', on_delete=models.CASCADE)
-    barcode = models.CharField(max_length=100, unique=True)
-    weight = models.DecimalField(max_digits=10, decimal_places=2)
+    barcode = models.CharField(max_length=100, unique=True, verbose_name="Mã vạch")
+    weight = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="KL Tịnh")
     is_odd = models.BooleanField(default=False, verbose_name="Kiện lẻ")
-    status = models.CharField(max_length=20, default='NEW', choices=[('NEW', 'Mới'), ('SOLD', 'Đã bán')])
-    batch = models.ForeignKey(ProductionBatch, on_delete=models.PROTECT, null=True) # Lưu dư để query nhanh
+    status = models.CharField(max_length=20, default='NEW', choices=[('NEW', 'Tồn kho'), ('SOLD', 'Đã bán')])
+    batch = models.ForeignKey(ProductionBatch, on_delete=models.SET_NULL, null=True, blank=True)
 
 class ScrapReturn(models.Model):
     weighing_slip = models.ForeignKey(WeighingSlip, related_name='scraps', on_delete=models.CASCADE)
-    material_type = models.ForeignKey('warehouse_input.MaterialType', on_delete=models.PROTECT)
+    material_type = models.ForeignKey(MaterialType, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
-# ================= 5. XUẤT HÀNG (DELIVERY) =================
+
 class DeliveryNote(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu xuất")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, verbose_name="Khách hàng")
     date = models.DateTimeField(default=timezone.now, verbose_name="Ngày xuất")
     note = models.TextField(blank=True)
-    
-    # Logic: Khi chọn kiện vào phiếu này -> Kiện đổi trạng thái thành SOLD
-    bundles = models.ManyToManyField(FinishedBundle, related_name='deliveries', verbose_name="Danh sách kiện xuất")
+    bundles = models.ManyToManyField(FinishedBundle, related_name='deliveries', verbose_name="Danh sách kiện")
+    def __str__(self): return self.code
 
-    def __str__(self): return f"Xuất: {self.code} -> {self.customer.name}"
-
-# ================= 6. TÁI CHẾ / GHÉP KIỆN (REPACKING) =================
 class RepackingSession(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu xử lý")
     date = models.DateTimeField(default=timezone.now)
-    note = models.TextField(blank=True, verbose_name="Ghi chú (VD: Ghép 2 kiện lẻ)")
-    
-    # Đầu vào: Các kiện cũ bị xé ra (Chọn từ danh sách kiện đang có)
-    input_bundles = models.ManyToManyField(FinishedBundle, related_name='repacked_in', verbose_name="Kiện nguồn (Bị hủy)")
-    
-    # Đầu ra: Chính là tạo FinishedBundle mới (Link vào batch cũ hoặc batch mới)
-    
+    note = models.TextField(blank=True)
+    input_bundles = models.ManyToManyField(FinishedBundle, related_name='repacked_in', verbose_name="Kiện nguồn")
     def __str__(self): return self.code
 
 ==================================================
 FILE: .\production\serializers.py
 ==================================================
-# production/serializers.py
 from rest_framework import serializers
-from .models import FinishedBundle, Customer, ProductionBatch, WeighingSlip
-from django.db.models import Sum
+from .models import (
+    ProductionOrder, ProductionOrderItem, MaterialIssueDetail,
+    ProductionBatch, FurnaceLog, WeighingSlip, FinishedBundle,
+    Customer, ProductStandard, AlloyType
+)
 
-# ---------------------------------------------------------
-# 1. Serializer cho Kiện hàng (Chỉ hiển thị thông tin kiện)
-# ---------------------------------------------------------
-class FinishedBundleSerializer(serializers.ModelSerializer):
-    # 1. Lấy mã mẻ (Bạn đã có cái này rồi)
-    batch_code = serializers.CharField(source='batch.lot_no', read_only=True)
-    
-    # 2. Lấy tên khách hàng (Để hiển thị trên bảng kiện)
-    customer_name = serializers.CharField(
-        source='batch.target_standard.customer.name', 
-        read_only=True, 
-        default="-"
-        )
-    
-    # 3. Lấy loại nhôm
-    alloy = serializers.CharField(
-        source='batch.target_standard.alloy_type', 
-        read_only=True, 
-        default="-"
-    )
-    class Meta:
-        model = FinishedBundle
-        fields = '__all__'
+# ==========================================================
+# 1. CÁC SERIALIZERS PHỤ (Define trước để dùng sau)
+# ==========================================================
 
-# ---------------------------------------------------------
-# 2. Serializer cho Mẻ nấu (Chứa logic tính tổng trọng lượng)
-# ---------------------------------------------------------
-class ProductionBatchSerializer(serializers.ModelSerializer):
-    customer_name = serializers.CharField(
-        source='target_standard.customer.name', 
-        read_only=True, 
-        default="-"
-    )
-    
-    alloy_name = serializers.CharField(
-        source='target_standard.alloy_type', 
-        read_only=True, 
-        default="-"
-    )
-
-    total_weight = serializers.SerializerMethodField()
-    total_bundles = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProductionBatch
-        fields = [
-            'id', 
-            'lot_no',       # Sửa 'code' thành 'lot_no' (Theo log lỗi của bạn)
-            'date_started', # Sửa 'date' thành 'date_started' (Theo log lỗi của bạn)
-            'customer_name', 
-            'alloy_name',
-            'total_weight', 
-            'total_bundles'
-        ]
-
-    def get_total_weight(self, obj):
-        # QUAN TRỌNG: Kiểm tra related_name trong models.py
-        # Nếu model FinishedBundle dòng 'batch' bạn KHÔNG ghi related_name='bundles'
-        # Thì mặc định Django dùng tên: 'finishedbundle_set' (như trong log lỗi gợi ý)
-        
-        # Hãy thử dùng 'finishedbundle_set' nếu 'bundles' báo lỗi
-        bundles = getattr(obj, 'bundles', None) or getattr(obj, 'finishedbundle_set', None)
-        
-        if bundles:
-            result = bundles.aggregate(Sum('weight'))
-            return result['weight__sum'] or 0
-        return 0
-
-    def get_total_bundles(self, obj):
-        bundles = getattr(obj, 'bundles', None) or getattr(obj, 'finishedbundle_set', None)
-        if bundles:
-            return bundles.count()
-        return 0
-
-# ---------------------------------------------------------
-# 3. Các Serializer khác
-# ---------------------------------------------------------
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = '__all__'
 
-class WeighingSlipSerializer(serializers.ModelSerializer):
-    total_bundles = serializers.SerializerMethodField()
-    total_weight = serializers.SerializerMethodField()
+class AlloyTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AlloyType
+        fields = '__all__'
 
+class ProductStandardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductStandard
+        fields = '__all__'
+
+# ==========================================================
+# 2. CHI TIẾT LỆNH (PHẢI ĐẶT TRÊN 'PRODUCTION ORDER')
+# ==========================================================
+
+class ProductionOrderItemSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source='material_type.name', read_only=True)
+    
+    class Meta:
+        model = ProductionOrderItem
+        fields = ['id', 'material_type', 'material_name', 'quantity_required']
+
+# ==========================================================
+# 3. LỆNH SẢN XUẤT (GỌI ĐẾN CHI TIẾT LỆNH)
+# ==========================================================
+
+class ProductionOrderSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.name', read_only=True)
+    product_type_name = serializers.CharField(source='product_type.name', read_only=True)
+    
+    # Lúc này Python đã biết ProductionOrderItemSerializer là ai rồi
+    items = ProductionOrderItemSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = ProductionOrder
+        fields = ['id', 'lot_no', 'customer', 'customer_name', 
+                  'product_type', 'product_type_name', 
+                  'target_quantity', 'status', 'date_created', 'note', 'items']
+
+# ==========================================================
+# 4. KHO: PHIẾU SOẠN HÀNG
+# ==========================================================
+
+class MaterialIssueDetailSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source='source_input.material_type.name', read_only=True)
+    lot_input = serializers.CharField(source='source_input.supplier_lot_no', read_only=True)
+    
+    class Meta:
+        model = MaterialIssueDetail
+        fields = ['id', 'production_order', 'source_input', 'material_name', 'lot_input', 'real_weight', 'status']
+
+# ==========================================================
+# 5. LÒ: NHẬT KÝ & MẺ NẤU
+# ==========================================================
+
+class FurnaceLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FurnaceLog
+        fields = '__all__'
+
+class ProductionBatchSerializer(serializers.ModelSerializer):
+    lot_no = serializers.CharField(source='production_order.lot_no', read_only=True)
+    
+    class Meta:
+        model = ProductionBatch
+        fields = ['id', 'production_order', 'lot_no', 'furnace_name', 
+                  'start_time', 'end_time', 'status', 'si_final', 'fe_final', 'cu_final']
+
+# ==========================================================
+# 6. THÀNH PHẨM
+# ==========================================================
+
+class FinishedBundleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinishedBundle
+        fields = '__all__'
+
+class WeighingSlipSerializer(serializers.ModelSerializer):
+    lot_no = serializers.CharField(source='production_order.lot_no', read_only=True)
+    bundles = FinishedBundleSerializer(many=True, read_only=True)
+    
     class Meta:
         model = WeighingSlip
-        fields = '__all__'
-        extra_kwargs = {
-            'note': {'required': False, 'allow_blank': True}
-        }
-
-    def get_total_bundles(self, obj):
-        # Tương tự, kiểm tra related_name trong model WeighingSlip
-        items = getattr(obj, 'bundles', None) or getattr(obj, 'finishedbundle_set', None)
-        return items.count() if items else 0
-
-    def get_total_weight(self, obj):
-        items = getattr(obj, 'bundles', None) or getattr(obj, 'finishedbundle_set', None)
-        if items:
-            result = items.aggregate(Sum('weight'))
-            return result['weight__sum'] or 0
-        return 0
+        fields = ['id', 'code', 'production_order', 'lot_no', 'date', 'bundles']
 
 ==================================================
 FILE: .\production\signals.py
@@ -556,38 +754,60 @@ FILE: .\production\views.py
 ==================================================
 # production/views.py
 from rest_framework import viewsets
-from .models import FinishedBundle, Customer, ProductionBatch, WeighingSlip
-from .serializers import (
-    FinishedBundleSerializer, 
-    CustomerSerializer, 
-    ProductionBatchSerializer, 
-    WeighingSlipSerializer
-)
 from django.shortcuts import render
 
+# Import Models
+from .models import (
+    ProductionOrder, ProductionBatch, MaterialIssueDetail,
+    WeighingSlip, FinishedBundle, Customer, ProductStandard
+)
+
+# Import Serializers
+from .serializers import (
+    ProductionOrderSerializer, ProductionBatchSerializer, MaterialIssueDetailSerializer,
+    WeighingSlipSerializer, FinishedBundleSerializer, CustomerSerializer, ProductStandardSerializer
+)
+
+# 1. View cho Lệnh Sản Xuất
+class ProductionOrderViewSet(viewsets.ModelViewSet):
+    # Sắp xếp theo ngày tạo mới nhất
+    queryset = ProductionOrder.objects.all().order_by('-date_created')
+    serializer_class = ProductionOrderSerializer
+
+# 2. View cho Mẻ Nấu (Lò)
 class ProductionBatchViewSet(viewsets.ModelViewSet):
-    # SỬA LỖI Ở ĐÂY:
-    # 1. Đổi '-date' thành '-date_started' (hoặc '-id')
-    # 2. Đổi 'bundles' thành 'finishedbundle_set' nếu bạn chưa đặt related_name
-    queryset = ProductionBatch.objects.all().prefetch_related('finishedbundle_set').order_by('-date_started')
+    # LƯU Ý QUAN TRỌNG: Sửa date_started -> start_time
+    queryset = ProductionBatch.objects.all().order_by('-start_time')
     serializer_class = ProductionBatchSerializer
+
+# 3. View cho Kho Soạn Hàng
+class MaterialIssueDetailViewSet(viewsets.ModelViewSet):
+    queryset = MaterialIssueDetail.objects.all().order_by('-created_at')
+    serializer_class = MaterialIssueDetailSerializer
+
+# 4. View cho Thành Phẩm
+class WeighingSlipViewSet(viewsets.ModelViewSet):
+    queryset = WeighingSlip.objects.all().order_by('-date')
+    serializer_class = WeighingSlipSerializer
 
 class FinishedBundleViewSet(viewsets.ModelViewSet):
     queryset = FinishedBundle.objects.all().order_by('-id')
     serializer_class = FinishedBundleSerializer
 
+# 5. Danh mục
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
 
-class WeighingSlipViewSet(viewsets.ModelViewSet):
-    queryset = WeighingSlip.objects.all().order_by('-id')
-    serializer_class = WeighingSlipSerializer
+class ProductStandardViewSet(viewsets.ModelViewSet):
+    queryset = ProductStandard.objects.all()
+    serializer_class = ProductStandardSerializer
+
+# --- CÁC HÀM RENDER HTML CŨ (GIỮ NGUYÊN HOẶC CẬP NHẬT SAU) ---
 def index(request):
-    """Hàm này sẽ trả về file html giao diện chính"""
     return render(request, 'production/index.html')
+
 def weighing(request):
-    """Trả về giao diện phiếu cân"""
     return render(request, 'production/weighing.html')
 
 ==================================================
@@ -596,7 +816,118 @@ FILE: .\production\__init__.py
 
 
 ==================================================
-FILE: .\production\templates\production\index.html
+FILE: .\templates\base.html
+==================================================
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenAlu ERP</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        /* Tùy chỉnh nhỏ để giống Sapo hơn */
+        .content-header { padding: 10px 0.5rem; }
+        .card { box-shadow: 0 0 1px rgba(0,0,0,.125), 0 1px 3px rgba(0,0,0,.2); border-radius: 4px; }
+        .sidebar-dark-primary { background-color: #0f1c3f !important; } /* Màu xanh đậm Sapo */
+    </style>
+</head>
+<body class="hold-transition sidebar-mini layout-fixed">
+<div class="wrapper">
+
+    <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+            </li>
+        </ul>
+        <span class="ml-2 font-weight-bold text-uppercase">Hệ Thống Quản Lý Sản Xuất</span>
+    </nav>
+
+    {% include 'includes/sidebar.html' %}
+
+    <div class="content-wrapper" style="background-color: #f4f6f9;">
+        <div class="content-header">
+            <div class="container-fluid">
+                <div class="row mb-2">
+                    <div class="col-sm-6">
+                        <h1 class="m-0">{% block title %}Tiêu đề trang{% endblock %}</h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <section class="content">
+            <div class="container-fluid">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </section>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+</body>
+</html>
+
+==================================================
+FILE: .\templates\includes\sidebar.html
+==================================================
+<aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <a href="/" class="brand-link text-center">
+        <span class="brand-text font-weight-light font-weight-bold">GREENALU ERP</span>
+    </a>
+
+    <div class="sidebar">
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                
+                <li class="nav-item">
+                    <a href="/" class="nav-link">
+                        <i class="nav-icon fas fa-tachometer-alt"></i>
+                        <p>Tổng quan</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/production/monthly-plan/" class="nav-link">
+                        <i class="nav-icon fas fa-calendar-alt"></i>
+                        <p>Kế hoạch sản xuất</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/stock/materials/" class="nav-link active"> <i class="nav-icon fas fa-cubes"></i>
+                        <p>Tồn kho NVL</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/production/furnace-log/" class="nav-link">
+                        <i class="nav-icon fas fa-fire"></i>
+                        <p>Nhật ký lò nấu</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="/stock/products/" class="nav-link">
+                        <i class="nav-icon fas fa-box-open"></i>
+                        <p>Tồn kho TP</p>
+                    </a>
+                </li>
+
+            </ul>
+        </nav>
+    </div>
+</aside>
+
+
+==================================================
+FILE: .\templates\production\index.html
 ==================================================
 <!DOCTYPE html>
 <html lang="vi">
@@ -660,7 +991,7 @@ FILE: .\production\templates\production\index.html
 </html>
 
 ==================================================
-FILE: .\production\templates\production\weighing.html
+FILE: .\templates\production\weighing.html
 ==================================================
 <!DOCTYPE html>
 <html lang="vi">
@@ -981,6 +1312,338 @@ FILE: .\production\templates\production\weighing.html
 </html>
 
 ==================================================
+FILE: .\templates\warehouse_input\import.html
+==================================================
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Phiếu Nhập Kho</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .input-sm { width: 100%; border: none; background: transparent; }
+        .input-sm:focus { outline: 2px solid #0d6efd; background: white; }
+    </style>
+</head>
+<body class="bg-light p-4">
+    <div class="container bg-white p-4 shadow rounded">
+        <h2 class="text-primary mb-4">📝 Tạo Phiếu Nhập Kho</h2>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="fw-bold">Nhà Cung Cấp:</label>
+                <select id="supplier-select" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+                <label class="fw-bold">Ngày Nhập:</label>
+                <input type="date" id="date-input" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label class="fw-bold">Ghi Chú:</label>
+                <input type="text" id="note-input" class="form-control" placeholder="VD: Nhập nhôm đợt 1...">
+            </div>
+        </div>
+
+        <table class="table table-bordered mt-4">
+            <thead class="table-secondary text-center">
+                <tr>
+                    <th width="30%">Vật Tư / Loại Nhôm</th>
+                    <th width="20%">Lot No (NCC)</th>
+                    <th width="15%">Số Lượng (Kg)</th>
+                    <th width="15%">Đơn Giá (VNĐ)</th>
+                    <th width="10%">Thành Tiền</th>
+                    <th width="5%">Xóa</th>
+                </tr>
+            </thead>
+            <tbody id="details-body">
+                </tbody>
+        </table>
+
+        <div class="d-flex justify-content-between">
+            <button class="btn btn-secondary" onclick="themDong()">+ Thêm Dòng</button>
+            <h4 class="text-danger">Tổng Tiền: <span id="total-amount">0</span></h4>
+        </div>
+
+        <hr>
+        <button class="btn btn-primary btn-lg w-100" onclick="luuPhieuNhap()">💾 LƯU PHIẾU NHẬP</button>
+    </div>
+
+    <script>
+        let materialOptions = ""; // Biến lưu danh sách vật tư để dùng lại khi thêm dòng
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. Tải danh sách NCC
+            fetch('/api/suppliers/').then(r => r.json()).then(data => {
+                const sel = document.getElementById('supplier-select');
+                data.forEach(s => sel.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+            });
+
+            // 2. Tải danh sách Vật tư
+            fetch('/api/materials/').then(r => r.json()).then(data => {
+                data.forEach(m => {
+                    materialOptions += `<option value="${m.id}">${m.name} (${m.code})</option>`;
+                });
+                themDong(); // Thêm sẵn 1 dòng đầu tiên
+            });
+
+            // Set ngày hôm nay
+            document.getElementById('date-input').valueAsDate = new Date();
+        });
+
+        function themDong() {
+            const tbody = document.getElementById('details-body');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><select class="form-select material-select">${materialOptions}</select></td>
+                <td><input type="text" class="form-control lot-input" placeholder="AL-202X..."></td>
+                <td><input type="number" class="form-control qty-input" value="0" oninput="tinhTongTien()"></td>
+                <td><input type="number" class="form-control price-input" value="0" oninput="tinhTongTien()"></td>
+                <td class="text-end fw-bold row-total">0</td>
+                <td class="text-center"><button class="btn btn-danger btn-sm" onclick="this.closest('tr').remove(); tinhTongTien()">X</button></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function tinhTongTien() {
+            let total = 0;
+            document.querySelectorAll('#details-body tr').forEach(row => {
+                const qty = parseFloat(row.querySelector('.qty-input').value) || 0;
+                const price = parseFloat(row.querySelector('.price-input').value) || 0;
+                const rowTotal = qty * price;
+                
+                row.querySelector('.row-total').innerText = rowTotal.toLocaleString();
+                total += rowTotal;
+            });
+            document.getElementById('total-amount').innerText = total.toLocaleString() + ' VNĐ';
+        }
+
+        function luuPhieuNhap() {
+            // 1. Thu thập thông tin Header
+            const supplierId = document.getElementById('supplier-select').value;
+            const date = document.getElementById('date-input').value;
+            const note = document.getElementById('note-input').value;
+            
+            // Tự sinh mã phiếu (PN + Timestamp)
+            const autoCode = "PN-" + Date.now().toString().slice(-8);
+
+            // 2. Thu thập danh sách chi tiết (Details)
+            const details = [];
+            const rows = document.querySelectorAll('#details-body tr');
+            
+            for (let row of rows) {
+                const matId = row.querySelector('.material-select').value;
+                const qty = parseFloat(row.querySelector('.qty-input').value);
+                
+                if (qty <= 0) continue; // Bỏ qua dòng số lượng 0
+
+                details.push({
+                    "material_type": matId,
+                    "supplier_lot_no": row.querySelector('.lot-input').value,
+                    "quantity": qty,
+                    "unit_price": parseFloat(row.querySelector('.price-input').value) || 0
+                });
+            }
+
+            if (details.length === 0) {
+                alert("⚠️ Vui lòng nhập ít nhất 1 mặt hàng!");
+                return;
+            }
+
+            // 3. Gửi JSON lên API
+            const payload = {
+                "code": autoCode,
+                "date": date,
+                "supplier": supplierId,
+                "note": note,
+                "details": details // <--- API Serializer đã viết sẵn logic xử lý cái list này
+            };
+
+            fetch('/api/input-vouchers/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken') // Hàm này lấy từ code cũ của bạn
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(async res => {
+                if (res.ok) {
+                    alert("✅ Đã lưu phiếu nhập thành công!");
+                    location.reload(); // Tải lại trang để nhập phiếu mới
+                } else {
+                    const err = await res.text();
+                    alert("❌ Lỗi: " + err);
+                }
+            })
+            .catch(err => alert("Lỗi kết nối: " + err));
+        }
+
+        // Hàm lấy Cookie (Copy từ file cũ của bạn)
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
+
+==================================================
+FILE: .\templates\warehouse_stock\inventory.html
+==================================================
+{% extends 'base.html' %} 
+
+{% block title %}Tồn kho Nguyên Vật Liệu{% endblock %}
+
+{% block content %}
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h3 class="card-title">Danh sách vật tư</h3>
+            <div class="card-tools">
+                <button class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nhập Mới</button>
+            </div>
+        </div>
+        
+        <div class="card-body p-0">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Mã VT</th>
+                        <th>Tên Vật Tư</th>
+                        <th>Số lượng</th>
+                        <th>Đơn vị</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.material.code }}</td>
+                        <td>{{ item.material.name }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.material.unit }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center">Chưa có dữ liệu</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endblock %}
+
+    <script>
+        let rawData = []; // Lưu dữ liệu gốc để tìm kiếm
+
+        document.addEventListener('DOMContentLoaded', function() {
+            taiDuLieu();
+        });
+
+        function taiDuLieu() {
+            fetch('/api/inventory/')
+                .then(res => res.json())
+                .then(data => {
+                    rawData = data;
+                    renderGrid(data);
+                })
+                .catch(err => console.error("Lỗi tải dữ liệu:", err));
+        }
+
+        function renderGrid(data) {
+            const container = document.getElementById('inventory-grid');
+            container.innerHTML = '';
+
+            if(data.length === 0) {
+                container.innerHTML = `<div class="col-12 text-center text-muted">Chưa có dữ liệu tồn kho.</div>`;
+                return;
+            }
+
+            data.forEach(item => {
+                // Tính toán phần trăm kế hoạch (Để vẽ thanh tiến độ)
+                // Nếu chưa có kế hoạch (0) thì mặc định là 0%
+                const plan = item.planned_quantity || 1; // Tránh chia cho 0
+                const percent = Math.min(((item.quantity_on_hand / plan) * 100), 100);
+                
+                // Logic màu sắc thanh tiến độ: <20% báo đỏ, >80% báo xanh
+                let progressColor = 'bg-primary';
+                if(percent < 20) progressColor = 'bg-danger';
+                if(percent > 100) progressColor = 'bg-success';
+
+                const cardHtml = `
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                    <div class="card card-inventory border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="card-title fw-bold text-dark mb-0">${item.material_name}</h5>
+                                    <small class="text-muted">${item.material_code}</small>
+                                </div>
+                                <span class="badge bg-secondary">${item.unit}</span>
+                            </div>
+
+                            <div class="row text-center my-3">
+                                <div class="col-4 border-end">
+                                    <small class="text-muted d-block">Thực Tế</small>
+                                    <span class="fs-5 fw-bold text-primary">${formatNumber(item.quantity_on_hand)}</span>
+                                </div>
+                                <div class="col-4 border-end">
+                                    <small class="text-muted d-block">Kế Hoạch</small>
+                                    <span class="fs-5 fw-bold text-dark">${formatNumber(item.planned_quantity)}</span>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted d-block">Đang Chờ</small>
+                                    <span class="fs-5 text-pending">${formatNumber(item.pending_quantity)}</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="d-flex justify-content-between" style="font-size: 0.8rem;">
+                                    <span>Tiến độ tồn kho</span>
+                                    <span>${percent.toFixed(0)}% Plan</span>
+                                </div>
+                                <div class="progress progress-micro">
+                                    <div class="progress-bar ${progressColor}" style="width: ${percent}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0 pt-0">
+                            <small class="text-muted fst-italic">
+                                Cập nhật: ${new Date(item.last_updated).toLocaleString('vi-VN')}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('vi-VN', {maximumFractionDigits: 0});
+        }
+
+        function filterData() {
+            const term = document.getElementById('search-box').value.toLowerCase();
+            const filtered = rawData.filter(item => 
+                item.material_name.toLowerCase().includes(term) || 
+                item.material_code.toLowerCase().includes(term)
+            );
+            renderGrid(filtered);
+        }
+    </script>
+</body>
+</html>
+
+==================================================
 FILE: .\warehouse_input\admin.py
 ==================================================
 from django.contrib import admin
@@ -1014,34 +1677,110 @@ FILE: .\warehouse_input\models.py
 from django.db import models
 from django.utils import timezone
 
+# 1. Loại vật tư (Phải đứng đầu)
 class MaterialType(models.Model):
     name = models.CharField(max_length=100, verbose_name="Tên loại vật tư")
     code = models.CharField(max_length=20, unique=True, verbose_name="Mã VT")
     unit = models.CharField(max_length=20, default="kg", verbose_name="Đơn vị")
+    description = models.TextField(blank=True, verbose_name="Mô tả")
+
     def __str__(self): return f"{self.name} ({self.code})"
 
+# 2. Nhà cung cấp
 class Supplier(models.Model):
     name = models.CharField(max_length=200, verbose_name="Nhà cung cấp")
+    phone = models.CharField(max_length=20, blank=True, verbose_name="SĐT")
+    address = models.TextField(blank=True, verbose_name="Địa chỉ")
+    
     def __str__(self): return self.name
 
+# 3. Phiếu nhập (Header)
 class InputVoucher(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu nhập")
     date = models.DateTimeField(default=timezone.now, verbose_name="Ngày nhập")
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name="Nhà cung cấp")
+    note = models.TextField(blank=True, verbose_name="Ghi chú")
     created_at = models.DateTimeField(auto_now_add=True)
-    def __str__(self): return self.code
 
+    def __str__(self): return f"{self.code} - {self.supplier.name}"
+
+    @property
+    def total_amount(self):
+        # Tính tổng tiền (Cần InputVoucherDetail đã được định nghĩa hoặc dùng related name)
+        # Lưu ý: Hàm này gọi lúc chạy (runtime) nên đặt ở đây vẫn OK
+        return sum(item.total_price for item in self.details.all())
+
+# 4. Chi tiết phiếu nhập (Detail)
 class InputVoucherDetail(models.Model):
     voucher = models.ForeignKey(InputVoucher, related_name='details', on_delete=models.CASCADE)
     material_type = models.ForeignKey(MaterialType, on_delete=models.PROTECT, verbose_name="Loại hàng")
-    quantity = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Khối lượng (kg)")
     
-    # Kết quả test mẫu đầu vào (QC Input)
+    supplier_lot_no = models.CharField(max_length=50, blank=True, verbose_name="Lot NCC") 
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Khối lượng (kg)")
+    unit_price = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name="Đơn giá (VND)") 
+    
+    # QC Input
     si_test = models.FloatField(default=0, verbose_name="Si (%)")
     fe_test = models.FloatField(default=0, verbose_name="Fe (%)")
     cu_test = models.FloatField(default=0, verbose_name="Cu (%)")
 
-    def __str__(self): return f"{self.material_type.name} - {self.quantity}kg"
+    def __str__(self): return f"{self.material_type.code} - {self.quantity}kg"
+
+    @property
+    def total_price(self):
+        return self.quantity * self.unit_price
+
+==================================================
+FILE: .\warehouse_input\serializers.py
+==================================================
+from rest_framework import serializers
+from .models import MaterialType, Supplier, InputVoucher, InputVoucherDetail
+
+# 1. Serializer cho Vật tư & NCC (Đơn giản)
+class MaterialTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MaterialType
+        fields = '__all__'
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = '__all__'
+
+# 2. Serializer cho Chi tiết phiếu nhập
+class InputVoucherDetailSerializer(serializers.ModelSerializer):
+    # Hiển thị thêm tên vật tư để dễ nhìn trên Frontend
+    material_name = serializers.CharField(source='material_type.name', read_only=True)
+    material_code = serializers.CharField(source='material_type.code', read_only=True)
+    
+    total_price = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = InputVoucherDetail
+        fields = ['id', 'material_type', 'material_name', 'material_code', 
+                  'supplier_lot_no', 'quantity', 'unit_price', 'total_price',
+                  'si_test', 'fe_test', 'cu_test']
+
+# 3. Serializer cho Phiếu nhập (QUAN TRỌNG)
+class InputVoucherSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+    details = InputVoucherDetailSerializer(many=True) # Cho phép gửi kèm danh sách chi tiết
+    total_amount = serializers.DecimalField(max_digits=14, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = InputVoucher
+        fields = ['id', 'code', 'date', 'supplier', 'supplier_name', 'note', 'details', 'total_amount']
+
+    # Hàm này xử lý việc lưu cùng lúc Phiếu + Chi tiết
+    def create(self, validated_data):
+        details_data = validated_data.pop('details') # Tách phần chi tiết ra
+        voucher = InputVoucher.objects.create(**validated_data) # Tạo phiếu trước
+        
+        # Sau đó tạo từng dòng chi tiết gắn vào phiếu
+        for detail_data in details_data:
+            InputVoucherDetail.objects.create(voucher=voucher, **detail_data)
+        
+        return voucher
 
 ==================================================
 FILE: .\warehouse_input\tests.py
@@ -1054,10 +1793,26 @@ from django.test import TestCase
 ==================================================
 FILE: .\warehouse_input\views.py
 ==================================================
+from rest_framework import viewsets
+from .models import MaterialType, Supplier, InputVoucher
+from .serializers import MaterialTypeSerializer, SupplierSerializer, InputVoucherSerializer
 from django.shortcuts import render
 
-# Create your views here.
+class MaterialTypeViewSet(viewsets.ModelViewSet):
+    queryset = MaterialType.objects.all()
+    serializer_class = MaterialTypeSerializer
 
+class SupplierViewSet(viewsets.ModelViewSet):
+    queryset = Supplier.objects.all()
+    serializer_class = SupplierSerializer
+
+class InputVoucherViewSet(viewsets.ModelViewSet):
+    # prefetch_related('details') giúp lấy luôn chi tiết, tránh query DB quá nhiều lần
+    queryset = InputVoucher.objects.all().prefetch_related('details').order_by('-date')
+    serializer_class = InputVoucherSerializer
+def import_page(request):
+    """Trả về giao diện phiếu nhập kho"""
+    return render(request, 'warehouse_input/import.html')
 
 ==================================================
 FILE: .\warehouse_input\__init__.py
@@ -1096,27 +1851,85 @@ FILE: .\warehouse_stock\models.py
 ==================================================
 from django.db import models
 from django.utils import timezone
+# Nếu lỗi "No module named simple_history", hãy chạy: pip install django-simple-history
+# Hoặc comment 2 dòng dưới đây lại:
+from simple_history.models import HistoricalRecords 
 
 class InventoryItem(models.Model):
-    # Dùng chuỗi tham chiếu để tránh lỗi Circular Import
+    # Dùng chuỗi tham chiếu 'warehouse_input.MaterialType' để tránh lỗi vòng lặp (Circular Import)
     material_type = models.ForeignKey('warehouse_input.MaterialType', on_delete=models.CASCADE, verbose_name="Loại vật tư")
     quantity_on_hand = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Tồn kho thực tế")
+    min_stock_level = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name="Mức an toàn")
+    
     last_updated = models.DateTimeField(auto_now=True)
+    
+    # Nếu chưa cài simple_history thì comment dòng này lại:
+    history = HistoricalRecords() 
 
     def __str__(self):
         return f"{self.material_type.name}: {self.quantity_on_hand}"
 
-# ================= MỚI THÊM: KIỂM KÊ KHO =================
 class StockAdjustment(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name="Mã phiếu kiểm kê")
     date = models.DateTimeField(default=timezone.now)
     material_type = models.ForeignKey('warehouse_input.MaterialType', on_delete=models.PROTECT, verbose_name="Vật tư")
     
-    # Số lượng điều chỉnh: Có thể âm hoặc dương
     adjustment_quantity = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Lượng điều chỉnh (+/-)")
     reason = models.TextField(verbose_name="Lý do chênh lệch")
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self): return f"{self.code} ({self.adjustment_quantity}kg)"
+
+==================================================
+FILE: .\warehouse_stock\serializers.py
+==================================================
+# warehouse_stock/serializers.py
+from rest_framework import serializers
+from django.utils import timezone
+from django.db.models import Sum
+from .models import InventoryItem, StockAdjustment
+
+# Import Model từ App khác để tính toán (Import bên trong method để tránh lỗi vòng lặp)
+# Lưu ý: Chúng ta sẽ import dynamic bên dưới
+
+class InventoryItemSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source='material_type.name', read_only=True)
+    material_code = serializers.CharField(source='material_type.code', read_only=True)
+    unit = serializers.CharField(source='material_type.unit', read_only=True)
+    
+    # 2 trường tính toán mới
+    planned_quantity = serializers.SerializerMethodField()
+    pending_quantity = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InventoryItem
+        fields = ['id', 'material_type', 'material_name', 'material_code', 'quantity_on_hand', 'unit', 'last_updated', 'planned_quantity', 'pending_quantity']
+
+    def get_planned_quantity(self, obj):
+        """Lấy kế hoạch của tháng hiện tại"""
+        from production.models import MonthlyPlan # Import ở đây để tránh Circular Import
+        
+        current_month = timezone.now().strftime('%Y-%m') # VD: "2024-01"
+        plan = MonthlyPlan.objects.filter(material_type=obj.material_type, month=current_month).first()
+        return plan.planned_quantity if plan else 0
+
+    def get_pending_quantity(self, obj):
+        """Tính tổng lượng hàng đã soạn (WAITING) đang nằm ở cửa lò"""
+        from production.models import MaterialIssueDetail # Import ở đây
+        
+        # Lọc các phiếu cân trạng thái WAITING của loại vật tư này
+        pending = MaterialIssueDetail.objects.filter(
+            source_input__material_type=obj.material_type, 
+            status='WAITING'
+        ).aggregate(Sum('real_weight'))
+        
+        return pending['real_weight__sum'] or 0
+
+class StockAdjustmentSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source='material_type.name', read_only=True)
+    class Meta:
+        model = StockAdjustment
+        fields = '__all__'
 
 ==================================================
 FILE: .\warehouse_stock\signals.py
@@ -1144,9 +1957,93 @@ from django.test import TestCase
 FILE: .\warehouse_stock\views.py
 ==================================================
 from django.shortcuts import render
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import F
 
-# Create your views here.
+# Import các Models liên quan
+from .models import InventoryItem, StockAdjustment
+from .serializers import InventoryItemSerializer, StockAdjustmentSerializer
+from warehouse_input.models import InputVoucherDetail
+from production.models import FurnaceLog
 
+class InventoryItemViewSet(viewsets.ReadOnlyModelViewSet): 
+    queryset = InventoryItem.objects.all().order_by('material_type__name')
+    serializer_class = InventoryItemSerializer
+
+    # --- TÍNH NĂNG MỚI: LẤY LỊCH SỬ GIAO DỊCH ---
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        """
+        API này trả về lịch sử biến động của 1 vật tư.
+        Logic: Gom tất cả Nhập + Xuất + Điều chỉnh -> Sắp xếp theo thời gian -> Tính tồn kho lũy kế.
+        """
+        inventory_item = self.get_object()
+        material = inventory_item.material_type
+        
+        transactions = []
+
+        # 1. Lấy lịch sử NHẬP KHO (+)
+        inputs = InputVoucherDetail.objects.filter(material_type=material).select_related('voucher')
+        for item in inputs:
+            transactions.append({
+                "date": item.voucher.date,
+                "type": "NHAP",
+                "quantity": item.quantity, # Số dương
+                "reason": f"Phiếu nhập: {item.voucher.code}",
+                "ref_id": item.voucher.id
+            })
+
+        # 2. Lấy lịch sử XUẤT SẢN XUẤT (NẤU LÒ) (-)
+        outputs = FurnaceLog.objects.filter(material_type=material, action_type='ADD')
+        for item in outputs:
+            transactions.append({
+                "date": item.timestamp,
+                "type": "XUAT",
+                "quantity": -item.quantity, # Số âm (trừ đi)
+                "reason": f"Cấp lò: {item.batch.furnace_name} (Lot: {item.batch.lot_no})",
+                "ref_id": item.batch.id
+            })
+
+        # 3. Lấy lịch sử KIỂM KÊ / ĐIỀU CHỈNH (+/-)
+        adjusts = StockAdjustment.objects.filter(material_type=material)
+        for item in adjusts:
+            transactions.append({
+                "date": item.date,
+                "type": "DIEU_CHINH",
+                "quantity": item.adjustment_quantity, # Có thể âm hoặc dương
+                "reason": f"Kiểm kê: {item.code} ({item.reason})",
+                "ref_id": item.id
+            })
+
+        # 4. Sắp xếp theo ngày tăng dần
+        transactions.sort(key=lambda x: x['date'])
+
+        # 5. Tính tồn kho lũy kế (Running Balance)
+        running_balance = 0
+        results = []
+        for t in transactions:
+            running_balance += float(t['quantity'])
+            results.append({
+                "date": t['date'],
+                "reason": t['reason'],
+                "change": t['quantity'],
+                "balance": running_balance # Tồn cuối sau giao dịch này
+            })
+
+        # Đảo ngược lại để ngày mới nhất lên đầu cho dễ xem
+        results.reverse()
+        
+        return Response(results)
+
+class StockAdjustmentViewSet(viewsets.ModelViewSet):
+    queryset = StockAdjustment.objects.all().order_by('-date')
+    serializer_class = StockAdjustmentSerializer
+
+def inventory_page(request):
+    """Trả về giao diện báo cáo tồn kho"""
+    return render(request, 'warehouse_stock\inventory.html')
 
 ==================================================
 FILE: .\warehouse_stock\__init__.py

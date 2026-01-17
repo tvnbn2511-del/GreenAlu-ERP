@@ -85,4 +85,4 @@ class StockAdjustmentViewSet(viewsets.ModelViewSet):
 
 def inventory_page(request):
     """Trả về giao diện báo cáo tồn kho"""
-    return render(request, 'warehouse_stock/inventory.html')
+    return render(request, 'warehouse_stock\inventory.html')

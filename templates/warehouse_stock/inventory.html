@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tồn kho Nguyên Vật Liệu{% endblock %}
+{% block page_header %}Tồn kho Nguyên Vật Liệu{% endblock %}
+{% block breadcrumb %}Kho / Tồn kho{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <div class="card card-outline card-primary">
+      <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-filter mr-1"></i> Bộ lọc & Công cụ
+        </h3>
+        <div class="card-tools">
+            <button type="button" class="btn btn-success btn-sm" onclick="alert('Tính năng Xuất Excel đang phát triển')">
+                <i class="fas fa-file-excel mr-1"></i> Xuất Excel
+            </button>
+            <button type="button" class="btn btn-warning btn-sm" onclick="alert('Mở modal kiểm kê')">
+                <i class="fas fa-clipboard-check mr-1"></i> Kiểm kê / Điều chỉnh
+            </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label>Loại Vật Tư</label>
+                    <select class="form-control" id="filterMaterialType">
+                        <option value="">-- Tất cả --</option>
+                        </select>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label>Kho / Vị trí</label>
+                    <select class="form-control" id="filterLocation">
+                        <option value="">-- Tất cả --</option>
+                        <option value="KHO_NVL">Kho Nguyên Liệu</option>
+                        <option value="KHO_TP">Kho Thành Phẩm</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-group w-100">
+                    <button class="btn btn-primary w-100" id="btnFilter">
+                        <i class="fas fa-search mr-1"></i> Tìm kiếm
+                    </button>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body table-responsive">
+        <table id="inventoryTable" class="table table-bordered table-hover table-striped">
+          <thead class="bg-light">
+          <tr>
+            <th style="width: 5%">#</th>
+            <th style="width: 15%">Mã Vật Tư</th>
+            <th style="width: 30%">Tên Vật Tư</th>
+            <th style="width: 10%" class="text-center">ĐVT</th>
+            <th style="width: 15%" class="text-right">Số Lượng Tồn</th>
+            <th style="width: 15%">Vị trí / Ghi chú</th>
+            <th style="width: 10%" class="text-center">Thao tác</th>
+          </tr>
+          </thead>
+          <tbody>
+            </tbody>
+          <tfoot>
+            <tr>
+                <th colspan="4" class="text-right">Tổng cộng:</th>
+                <th class="text-right" id="totalStock">0</th>
+                <th colspan="2"></th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function () {
+    // Cấu hình DataTable
+    var table = $('#inventoryTable').DataTable({
+        "responsive": true, 
+        "autoWidth": false,
+        "processing": true,
+        // "serverSide": true, // Bật nếu dữ liệu quá lớn > 10.000 dòng
+        "ajax": {
+            "url": "/api/inventory/", // Đường dẫn API mà bạn đã khai báo trong urls.py
+            "dataSrc": "" // Nếu API trả về list [] trực tiếp. Nếu trả về {results: []} thì để "results"
+        },
+        "columns": [
+            { "data": "id" }, // Giả sử model có field id
+            { "data": "material_type_code", "defaultContent": "<i>N/A</i>" }, // Cần serializer trả về field này
+            { "data": "material_type_name", "defaultContent": "New Material" },
+            { "data": "unit", "className": "text-center", "defaultContent": "Kg" },
+            { 
+                "data": "quantity", 
+                "className": "text-right font-weight-bold",
+                "render": function (data, type, row) {
+                    return parseFloat(data).toLocaleString('vi-VN');
+                }
+            },
+            { "data": "location", "defaultContent": "-" },
+            {
+                "data": null,
+                "className": "text-center",
+                "render": function (data, type, row) {
+                    return `
+                        <button class="btn btn-xs btn-info" title="Lịch sử"><i class="fas fa-history"></i></button>
+                    `;
+                }
+            }
+        ],
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/vi.json" // Tiếng Việt cho bảng
+        },
+        "footerCallback": function ( row, data, start, end, display ) {
+            var api = this.api();
+            // Tính tổng số lượng hiển thị trên trang hiện tại
+            var total = api
+                .column( 4, { page: 'current'} )
+                .data()
+                .reduce( function (a, b) {
+                    return parseFloat(a) + parseFloat(b);
+                }, 0 );
+            
+            // Update footer
+            $('#totalStock').html(total.toLocaleString('vi-VN'));
+        }
+    });
+
+    // Sự kiện nút lọc (Reload lại bảng)
+    $('#btnFilter').click(function() {
+        table.ajax.reload();
+    });
+});
+</script>
+{% endblock %}
+
+    <script>
+        let rawData = []; // Lưu dữ liệu gốc để tìm kiếm
+
+        document.addEventListener('DOMContentLoaded', function() {
+            taiDuLieu();
+        });
+
+        function taiDuLieu() {
+            fetch('/api/inventory/')
+                .then(res => res.json())
+                .then(data => {
+                    rawData = data;
+                    renderGrid(data);
+                })
+                .catch(err => console.error("Lỗi tải dữ liệu:", err));
+        }
+
+        function renderGrid(data) {
+            const container = document.getElementById('inventory-grid');
+            container.innerHTML = '';
+
+            if(data.length === 0) {
+                container.innerHTML = `<div class="col-12 text-center text-muted">Chưa có dữ liệu tồn kho.</div>`;
+                return;
+            }
+
+            data.forEach(item => {
+                // Tính toán phần trăm kế hoạch (Để vẽ thanh tiến độ)
+                // Nếu chưa có kế hoạch (0) thì mặc định là 0%
+                const plan = item.planned_quantity || 1; // Tránh chia cho 0
+                const percent = Math.min(((item.quantity_on_hand / plan) * 100), 100);
+                
+                // Logic màu sắc thanh tiến độ: <20% báo đỏ, >80% báo xanh
+                let progressColor = 'bg-primary';
+                if(percent < 20) progressColor = 'bg-danger';
+                if(percent > 100) progressColor = 'bg-success';
+
+                const cardHtml = `
+                <div class="col-md-6 col-lg-4 col-xl-3">
+                    <div class="card card-inventory border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="card-title fw-bold text-dark mb-0">${item.material_name}</h5>
+                                    <small class="text-muted">${item.material_code}</small>
+                                </div>
+                                <span class="badge bg-secondary">${item.unit}</span>
+                            </div>
+
+                            <div class="row text-center my-3">
+                                <div class="col-4 border-end">
+                                    <small class="text-muted d-block">Thực Tế</small>
+                                    <span class="fs-5 fw-bold text-primary">${formatNumber(item.quantity_on_hand)}</span>
+                                </div>
+                                <div class="col-4 border-end">
+                                    <small class="text-muted d-block">Kế Hoạch</small>
+                                    <span class="fs-5 fw-bold text-dark">${formatNumber(item.planned_quantity)}</span>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted d-block">Đang Chờ</small>
+                                    <span class="fs-5 text-pending">${formatNumber(item.pending_quantity)}</span>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="d-flex justify-content-between" style="font-size: 0.8rem;">
+                                    <span>Tiến độ tồn kho</span>
+                                    <span>${percent.toFixed(0)}% Plan</span>
+                                </div>
+                                <div class="progress progress-micro">
+                                    <div class="progress-bar ${progressColor}" style="width: ${percent}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-0 pt-0">
+                            <small class="text-muted fst-italic">
+                                Cập nhật: ${new Date(item.last_updated).toLocaleString('vi-VN')}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('vi-VN', {maximumFractionDigits: 0});
+        }
+
+        function filterData() {
+            const term = document.getElementById('search-box').value.toLowerCase();
+            const filtered = rawData.filter(item => 
+                item.material_name.toLowerCase().includes(term) || 
+                item.material_code.toLowerCase().includes(term)
+            );
+            renderGrid(filtered);
+        }
+    </script>
+</body>
+</html>

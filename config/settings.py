@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'warehouse_input',
     'warehouse_stock',
     'production.apps.ProductionConfig', # Khai báo đầy đủ để chạy được Signals
+
     
 ]
 
@@ -60,7 +61,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

@@ -1,5 +1,5 @@
-Folder PATH listing for volume Windows
-Volume serial number is 76EF-0042
+Folder PATH listing
+Volume serial number is 2242-7C9D
 C:.
 |   .gitignore
 |   db.sqlite3
@@ -23,6 +23,19 @@ C:.
 |           wsgi.cpython-314.pyc
 |           __init__.cpython-314.pyc
 |           
++---inventory
+|   +---migrations
+|   |   \---__pycache__
+|   |           0001_initial.cpython-314.pyc
+|   |           0002_customer_remove_productionbatch_total_output_weight_and_more.cpython-314.pyc
+|   |           __init__.cpython-314.pyc
+|   |           
+|   \---__pycache__
+|           admin.cpython-314.pyc
+|           apps.cpython-314.pyc
+|           models.cpython-314.pyc
+|           __init__.cpython-314.pyc
+|           
 +---production
 |   |   admin.py
 |   |   apps.py
@@ -35,8 +48,6 @@ C:.
 |   |   
 |   +---migrations
 |   |   |   0001_initial.py
-|   |   |   0002_deliverynote_repackingsession.py
-|   |   |   0003_weighingslip_ng_weight_weighingslip_pallet_weight.py
 |   |   |   __init__.py
 |   |   |   
 |   |   \---__pycache__
@@ -44,11 +55,6 @@ C:.
 |   |           0002_deliverynote_repackingsession.cpython-314.pyc
 |   |           0003_weighingslip_ng_weight_weighingslip_pallet_weight.cpython-314.pyc
 |   |           __init__.cpython-314.pyc
-|   |           
-|   +---templates
-|   |   \---production
-|   |           index.html
-|   |           weighing.html
 |   |           
 |   \---__pycache__
 |           admin.cpython-314.pyc
@@ -58,6 +64,22 @@ C:.
 |           signals.cpython-314.pyc
 |           views.cpython-314.pyc
 |           __init__.cpython-314.pyc
+|           
++---templates
+|   |   base.html
+|   |   
+|   +---includes
+|   |       sidebar.html
+|   |       
+|   +---production
+|   |       index.html
+|   |       weighing.html
+|   |       
+|   +---warehouse_input
+|   |       import.html
+|   |       
+|   \---warehouse_stock
+|           inventory.html
 |           
 +---venv
 |   |   .gitignore
@@ -95,6 +117,7 @@ C:.
 |   |       |   |   INSTALLER
 |   |       |   |   METADATA
 |   |       |   |   RECORD
+|   |       |   |   REQUESTED
 |   |       |   |   top_level.txt
 |   |       |   |   WHEEL
 |   |       |   |   
@@ -8927,166 +8950,7 @@ C:.
 |   |       |   \---licenses
 |   |       |           LICENSE.md
 |   |       |           
-|   |       +---django_filter-25.2.dist-info
-|   |       |       INSTALLER
-|   |       |       LICENSE
-|   |       |       METADATA
-|   |       |       RECORD
-|   |       |       REQUESTED
-|   |       |       WHEEL
-|   |       |       
-|   |       +---django_filters
-|   |       |   |   compat.py
-|   |       |   |   conf.py
-|   |       |   |   constants.py
-|   |       |   |   exceptions.py
-|   |       |   |   fields.py
-|   |       |   |   filters.py
-|   |       |   |   filterset.py
-|   |       |   |   utils.py
-|   |       |   |   views.py
-|   |       |   |   widgets.py
-|   |       |   |   __init__.py
-|   |       |   |   
-|   |       |   +---locale
-|   |       |   |   +---ar
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---be
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---bg
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---cs
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---da
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---de
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---el
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---es
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---es_AR
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---fa
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---fi
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---fr
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---it
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---nl
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---pl
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---pt_BR
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---ro
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---ru
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---sk
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   +---uk
-|   |       |   |   |   \---LC_MESSAGES
-|   |       |   |   |           django.mo
-|   |       |   |   |           django.po
-|   |       |   |   |           
-|   |       |   |   \---zh_CN
-|   |       |   |       \---LC_MESSAGES
-|   |       |   |               django.mo
-|   |       |   |               django.po
-|   |       |   |               
-|   |       |   +---rest_framework
-|   |       |   |   |   backends.py
-|   |       |   |   |   filters.py
-|   |       |   |   |   filterset.py
-|   |       |   |   |   __init__.py
-|   |       |   |   |   
-|   |       |   |   \---__pycache__
-|   |       |   |           backends.cpython-314.pyc
-|   |       |   |           filters.cpython-314.pyc
-|   |       |   |           filterset.cpython-314.pyc
-|   |       |   |           __init__.cpython-314.pyc
-|   |       |   |           
-|   |       |   +---templates
-|   |       |   |   \---django_filters
-|   |       |   |       +---rest_framework
-|   |       |   |       |       crispy_form.html
-|   |       |   |       |       form.html
-|   |       |   |       |       
-|   |       |   |       \---widgets
-|   |       |   |               multiwidget.html
-|   |       |   |               
-|   |       |   \---__pycache__
-|   |       |           compat.cpython-314.pyc
-|   |       |           conf.cpython-314.pyc
-|   |       |           constants.cpython-314.pyc
-|   |       |           exceptions.cpython-314.pyc
-|   |       |           fields.cpython-314.pyc
-|   |       |           filters.cpython-314.pyc
-|   |       |           filterset.cpython-314.pyc
-|   |       |           utils.cpython-314.pyc
-|   |       |           views.cpython-314.pyc
-|   |       |           widgets.cpython-314.pyc
-|   |       |           __init__.cpython-314.pyc
-|   |       |           
-|   |       +---django_simple_history-3.10.1.dist-info
+|   |       +---django_simple_history-3.11.0.dist-info
 |   |       |   |   INSTALLER
 |   |       |   |   METADATA
 |   |       |   |   RECORD
@@ -9096,92 +8960,6 @@ C:.
 |   |       |   \---licenses
 |   |       |           AUTHORS.rst
 |   |       |           LICENSE.txt
-|   |       |           
-|   |       +---markdown
-|   |       |   |   blockparser.py
-|   |       |   |   blockprocessors.py
-|   |       |   |   core.py
-|   |       |   |   htmlparser.py
-|   |       |   |   inlinepatterns.py
-|   |       |   |   postprocessors.py
-|   |       |   |   preprocessors.py
-|   |       |   |   serializers.py
-|   |       |   |   test_tools.py
-|   |       |   |   treeprocessors.py
-|   |       |   |   util.py
-|   |       |   |   __init__.py
-|   |       |   |   __main__.py
-|   |       |   |   __meta__.py
-|   |       |   |   
-|   |       |   +---extensions
-|   |       |   |   |   abbr.py
-|   |       |   |   |   admonition.py
-|   |       |   |   |   attr_list.py
-|   |       |   |   |   codehilite.py
-|   |       |   |   |   def_list.py
-|   |       |   |   |   extra.py
-|   |       |   |   |   fenced_code.py
-|   |       |   |   |   footnotes.py
-|   |       |   |   |   legacy_attrs.py
-|   |       |   |   |   legacy_em.py
-|   |       |   |   |   md_in_html.py
-|   |       |   |   |   meta.py
-|   |       |   |   |   nl2br.py
-|   |       |   |   |   sane_lists.py
-|   |       |   |   |   smarty.py
-|   |       |   |   |   tables.py
-|   |       |   |   |   toc.py
-|   |       |   |   |   wikilinks.py
-|   |       |   |   |   __init__.py
-|   |       |   |   |   
-|   |       |   |   \---__pycache__
-|   |       |   |           abbr.cpython-314.pyc
-|   |       |   |           admonition.cpython-314.pyc
-|   |       |   |           attr_list.cpython-314.pyc
-|   |       |   |           codehilite.cpython-314.pyc
-|   |       |   |           def_list.cpython-314.pyc
-|   |       |   |           extra.cpython-314.pyc
-|   |       |   |           fenced_code.cpython-314.pyc
-|   |       |   |           footnotes.cpython-314.pyc
-|   |       |   |           legacy_attrs.cpython-314.pyc
-|   |       |   |           legacy_em.cpython-314.pyc
-|   |       |   |           md_in_html.cpython-314.pyc
-|   |       |   |           meta.cpython-314.pyc
-|   |       |   |           nl2br.cpython-314.pyc
-|   |       |   |           sane_lists.cpython-314.pyc
-|   |       |   |           smarty.cpython-314.pyc
-|   |       |   |           tables.cpython-314.pyc
-|   |       |   |           toc.cpython-314.pyc
-|   |       |   |           wikilinks.cpython-314.pyc
-|   |       |   |           __init__.cpython-314.pyc
-|   |       |   |           
-|   |       |   \---__pycache__
-|   |       |           blockparser.cpython-314.pyc
-|   |       |           blockprocessors.cpython-314.pyc
-|   |       |           core.cpython-314.pyc
-|   |       |           htmlparser.cpython-314.pyc
-|   |       |           inlinepatterns.cpython-314.pyc
-|   |       |           postprocessors.cpython-314.pyc
-|   |       |           preprocessors.cpython-314.pyc
-|   |       |           serializers.cpython-314.pyc
-|   |       |           test_tools.cpython-314.pyc
-|   |       |           treeprocessors.cpython-314.pyc
-|   |       |           util.cpython-314.pyc
-|   |       |           __init__.cpython-314.pyc
-|   |       |           __main__.cpython-314.pyc
-|   |       |           __meta__.cpython-314.pyc
-|   |       |           
-|   |       +---markdown-3.10.dist-info
-|   |       |   |   entry_points.txt
-|   |       |   |   INSTALLER
-|   |       |   |   METADATA
-|   |       |   |   RECORD
-|   |       |   |   REQUESTED
-|   |       |   |   top_level.txt
-|   |       |   |   WHEEL
-|   |       |   |   
-|   |       |   \---licenses
-|   |       |           LICENSE.md
 |   |       |           
 |   |       +---pip
 |   |       |   |   py.typed
@@ -10925,6 +10703,11 @@ C:.
 |   |       |   |   |           django.mo
 |   |       |   |   |           django.po
 |   |       |   |   |           
+|   |       |   |   +---uk
+|   |       |   |   |   \---LC_MESSAGES
+|   |       |   |   |           django.mo
+|   |       |   |   |           django.po
+|   |       |   |   |           
 |   |       |   |   +---ur
 |   |       |   |   |   \---LC_MESSAGES
 |   |       |   |   |           django.mo
@@ -11041,6 +10824,7 @@ C:.
 |   |       |   |   INSTALLER
 |   |       |   |   METADATA
 |   |       |   |   RECORD
+|   |       |   |   REQUESTED
 |   |       |   |   WHEEL
 |   |       |   |   
 |   |       |   \---licenses
@@ -11788,6 +11572,7 @@ C:.
 |   |           |   INSTALLER
 |   |           |   METADATA
 |   |           |   RECORD
+|   |           |   REQUESTED
 |   |           |   top_level.txt
 |   |           |   WHEEL
 |   |           |   
@@ -11804,7 +11589,6 @@ C:.
 |           Activate.ps1
 |           deactivate.bat
 |           django-admin.exe
-|           markdown_py.exe
 |           pip.exe
 |           pip3.14.exe
 |           pip3.exe
@@ -11816,6 +11600,7 @@ C:.
 |   |   admin.py
 |   |   apps.py
 |   |   models.py
+|   |   serializers.py
 |   |   tests.py
 |   |   views.py
 |   |   __init__.py
@@ -11826,18 +11611,22 @@ C:.
 |   |   |   
 |   |   \---__pycache__
 |   |           0001_initial.cpython-314.pyc
+|   |           0002_inputvoucher_note_inputvoucherdetail_supplier_lot_no_and_more.cpython-314.pyc
 |   |           __init__.cpython-314.pyc
 |   |           
 |   \---__pycache__
 |           admin.cpython-314.pyc
 |           apps.cpython-314.pyc
 |           models.cpython-314.pyc
+|           serializers.cpython-314.pyc
+|           views.cpython-314.pyc
 |           __init__.cpython-314.pyc
 |           
 \---warehouse_stock
     |   admin.py
     |   apps.py
     |   models.py
+    |   serializers.py
     |   signals.py
     |   tests.py
     |   views.py
@@ -11845,17 +11634,20 @@ C:.
     |   
     +---migrations
     |   |   0001_initial.py
-    |   |   0002_stockadjustment.py
     |   |   __init__.py
     |   |   
     |   \---__pycache__
     |           0001_initial.cpython-314.pyc
     |           0002_stockadjustment.cpython-314.pyc
+    |           0003_stockadjustment_created_at.cpython-314.pyc
+    |           0004_inventoryitem_min_stock_level_and_more.cpython-314.pyc
     |           __init__.cpython-314.pyc
     |           
     \---__pycache__
             admin.cpython-314.pyc
             apps.cpython-314.pyc
             models.cpython-314.pyc
+            serializers.cpython-314.pyc
+            views.cpython-314.pyc
             __init__.cpython-314.pyc
             
