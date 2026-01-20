@@ -1,43 +1,40 @@
-<nav class="mt-2">
-  <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
-    
-    <li class="nav-header">QUẢN LÝ KHO</li>
-    <li class="nav-item">
-      <a href="{% url 'inventory' %}" class="nav-link {% if request.resolver_match.url_name == 'inventory' %}active{% endif %}">
-        <i class="nav-icon fas fa-boxes"></i>
-        <p>Tồn kho Vật tư</p>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a href="{% url 'import' %}" class="nav-link {% if request.resolver_match.url_name == 'import' %}active{% endif %}">
-        <i class="nav-icon fas fa-truck-loading"></i>
-        <p>Nhập kho</p>
-      </a>
-    </li>
+<aside class="main-sidebar sidebar-dark-primary elevation-4" style="background-color: #0f1c3f;">
+    <a href="/" class="brand-link text-center">
+        <span class="brand-text font-weight-bold text-white">GREENALU ERP</span>
+    </a>
 
-    <li class="nav-header">SẢN XUẤT</li>
-    <li class="nav-item">
-        <a href="#" class="nav-link">
-          <i class="nav-icon fas fa-industry"></i>
-          <p>
-            Lệnh Sản Xuất
-            <i class="fas fa-angle-left right"></i>
-          </p>
-        </a>
-        <ul class="nav nav-treeview">
-          <li class="nav-item">
-            <a href="#" class="nav-link">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Tạo Lệnh Mới</p>
-            </a>
-          </li>
-          <li class="nav-item">
-            <a href="{% url 'weighing' %}" class="nav-link">
-              <i class="far fa-circle nav-icon"></i>
-              <p>Cân Hàng / Đóng Kiện</p>
-            </a>
-          </li>
-        </ul>
-      </li>
-  </ul>
-</nav>
+    <div class="sidebar">
+        <nav class="mt-2">
+            <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                
+                <li class="nav-header">KHO VẬT TƯ</li>
+                <li class="nav-item">
+                    <a href="/nhap-kho/" class="nav-link">
+                        <i class="nav-icon fas fa-truck-loading"></i>
+                        <p>Nhập kho</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/stock/materials/" class="nav-link">
+                        <i class="nav-icon fas fa-boxes"></i>
+                        <p>Tồn kho NVL</p>
+                    </a>
+                </li>
+
+                <li class="nav-header">SẢN XUẤT</li>
+                <li class="nav-item">
+                    <a href="/production/orders/" class="nav-link">
+                        <i class="nav-icon fas fa-industry"></i>
+                        <p>Lệnh Sản Xuất</p>
+                    </a>
+                </li>
+                 <li class="nav-item">
+                    <a href="/production/weighing/" class="nav-link">
+                        <i class="nav-icon fas fa-balance-scale"></i>
+                        <p>Phiếu Cân</p>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+</aside>

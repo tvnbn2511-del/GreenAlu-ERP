@@ -1,9 +1,27 @@
 from django.db import models
 from django.utils import timezone
+class MaterialCategory(models.Model):
+    code = models.CharField(max_length=50, unique=True, verbose_name="Mã nhóm")
+    name = models.CharField(max_length=200, verbose_name="Tên nhóm")
+    description = models.TextField(blank=True, null=True, verbose_name="Mô tả")
 
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+    class Meta:
+        verbose_name = "Nhóm vật tư"
+        verbose_name_plural = "Nhóm vật tư"
 # 1. Loại vật tư (Phải đứng đầu)
 class MaterialType(models.Model):
     name = models.CharField(max_length=100, verbose_name="Tên loại vật tư")
+    category = models.ForeignKey(
+        MaterialCategory,
+        on_delete=models.SET_NULL, # Nếu xóa nhóm, vật tư không bị xóa (chỉ mất nhóm)
+        null=True,                 # Cho phép cũ chưa có nhóm
+        blank=True,
+        related_name='material_types',
+        verbose_name="Thuộc nhóm"
+    )
     code = models.CharField(max_length=20, unique=True, verbose_name="Mã VT")
     unit = models.CharField(max_length=20, default="kg", verbose_name="Đơn vị")
     description = models.TextField(blank=True, verbose_name="Mô tả")
